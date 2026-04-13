@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "bulid",
+			"type": "shell",
+			"isBackground": true,
+			"hide": true,
+			"runOptions": { },
+			"command": "cd ${workspaceFolder}/build && cmake .. -G 'Ninja' && ninja",
+			"problemMatcher": [ ],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "never",
+				"focus": true,
+				"panel": "new",
+				"close": true
+			}
+		},
+		{
+			"label": "flash",
+			"type": "shell",
+			"dependsOn": [ "bulid" ],
+			"isBackground": true,
+			"hide": true,
+			"runOptions": { },
+			"command": "pwsh -f ${workspaceFolder}/upload.ps1",
+			"problemMatcher": [ ],
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "never",
+				"focus": true,
+				"panel": "new",
+				"close": true
+			}
+		}
+	]
+}

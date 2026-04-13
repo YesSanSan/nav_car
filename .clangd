@@ -1,0 +1,56 @@
+Diagnostics:
+  UnusedIncludes: None
+  ClangTidy:
+    Add: [
+      bugprone-*,
+      performance-*,
+      modernize-*,
+      # readability-*,
+      portability-*,
+      # cppcoreguidelines-*,
+      clang-analyzer-*,
+    ]
+    Remove: [
+      cppcoreguidelines-avoid-magic-numbers,
+      cppcoreguidelines-owning-memory,
+      cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+      performance-no-int-to-ptr,
+      bugprone-narrowing-conversions,
+      bugprone-easily-swappable-parameters,
+      bugprone-dynamic-static-initializers,
+      modernize-use-trailing-return-type,
+    ]
+CompileFlags:
+  # Remove: [-fno-shrink-wrap, -fstrict-volatile-bitfields, -fno-tree-switch-conversion, -mlongcalls]
+  Add:
+    - "-ID:/scoop/apps/gcc-arm-none-eabi/15.2.rel1/arm-none-eabi/include"
+    - "-ID:/scoop/apps/gcc-arm-none-eabi/15.2.rel1/arm-none-eabi/include/c++/15.2.1"
+    - "-ID:/scoop/apps/gcc-arm-none-eabi/15.2.rel1/arm-none-eabi/include/c++/15.2.1/arm-none-eabi"
+    - "-Wc11-extensions"
+    # - "-std=c11"
+    
+    # - "-std=c++14"
+---
+If:
+  PathMatch: [.*/motor_control.cpp]
+CompileFlags:
+  Add: [-Wno-deprecated-volatile]
+---
+If:
+  PathMatch: [.*/main.c]
+CompileFlags:
+  Add: [-Wno-unused-parameter]
+
+# ---
+# If:
+#   PathMatch: [.*/.c, .*/.h]
+# CompileFlags:
+#   Add:
+#     - "-std=c11"
+# ---
+# If:
+#   PathMatch: [.*/.cpp, .*/.hpp]
+# CompileFlags:
+#   Add:
+#     - "-std=c++14"
+            
