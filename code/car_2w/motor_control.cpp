@@ -36,13 +36,24 @@ extern std::atomic<float> cmd_z;
 extern volatile std::atomic<float> volt;
 
 constexpr uint32_t control_loop_ms  = 1; // 控制周期
-constexpr float    pid_output_limit = 9999;
+constexpr float    pid_output_limit = 10000;
+constexpr float    pwm_brake_output = pid_output_limit + 1.0f;
 
 static void Motor_SetOutput_1(float &pwm_output) {
+    if (pwm_output == pwm_brake_output) {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, (uint16_t)pid_output_limit);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, (uint16_t)pid_output_limit);
+        return;
+    }
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, (uint16_t)(pwm_output > 0 ? pwm_output : 0));
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, (uint16_t)(-pwm_output > 0 ? -pwm_output : 0));
 }
 static void Motor_SetOutput_2(float &pwm_output) {
+    if (pwm_output == pwm_brake_output) {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, (uint16_t)pid_output_limit);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, (uint16_t)pid_output_limit);
+        return;
+    }
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, (uint16_t)(pwm_output > 0 ? pwm_output : 0));
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, (uint16_t)(-pwm_output > 0 ? -pwm_output : 0));
 }
@@ -53,7 +64,7 @@ float map(float value, float old_min, float old_max, float new_min, float new_ma
 
 void climp_pwm(float &pwm_output) {
     printf("%d  ", (uint16_t)std::fabsf(pwm_output));
-    pwm_output = map(pwm_output, 0, 9999, 5000, 6995);
+    pwm_output = map(pwm_output, 0, pid_output_limit, 5000, 6995);
     printf("%d\n", (uint16_t)std::fabsf(pwm_output));
 }
 
@@ -64,7 +75,9 @@ float apply_deadband(float out, float dead_pct) {
 
 float PidTool::caculate(float target, float current) {
     if (target == 0) {
-        return 0;
+        integral = 0;
+        last_cur = 0;
+        return pwm_brake_output;
     }
 
     float error      = target - current;
@@ -167,20 +180,20 @@ void Motor::update(int32_t delta_time, float target_rpm) {
 
     static std::array<uint8_t, 5> cnt = {0, 1, 2, 3};
     if (id == 1 && cnt[id - 1] % 20 == 0) {
-        printf("volt=%.3f\n", volt.load());
+        // printf("volt=%.3f\n", volt.load());
     }
     if (cnt[id - 1]++ % 20 == 0) {
-        printf("id%d,target%d=%d.%d,target_rpm%d=%d.%d,int%d=%d.%d,real_rpm%d=%d.%d,enc%d=%d,pwm%d=%d.%d\n",
-               id, id, static_cast<int>(real_target), std::abs(static_cast<int>(real_target * 1000)) % 1000,
-               id, static_cast<int>(real_target), std::abs(static_cast<int>(real_target * 1000)) % 1000,
-               id, static_cast<int>(pid.integral), std::abs(static_cast<int>(pid.integral * 1000)) % 1000,
-               id, static_cast<int>(speed_rpm), std::abs(static_cast<int>(speed_rpm * 1000)) % 1000,
-               id, current_encoder_value,
-               id, static_cast<int>(pwm_output), std::abs(static_cast<int>(pwm_output * 1000)) % 1000);
+        // printf("id%d,target%d=%d.%d,target_rpm%d=%d.%d,int%d=%d.%d,real_rpm%d=%d.%d,enc%d=%d,pwm%d=%d.%d\n",
+        //        id, id, static_cast<int>(real_target), std::abs(static_cast<int>(real_target * 1000)) % 1000,
+        //        id, static_cast<int>(real_target), std::abs(static_cast<int>(real_target * 1000)) % 1000,
+        //        id, static_cast<int>(pid.integral), std::abs(static_cast<int>(pid.integral * 1000)) % 1000,
+        //        id, static_cast<int>(speed_rpm), std::abs(static_cast<int>(speed_rpm * 1000)) % 1000,
+        //        id, current_encoder_value,
+        //        id, static_cast<int>(pwm_output), std::abs(static_cast<int>(pwm_output * 1000)) % 1000);
     }
 
     control_output_helper(pwm_output);
-    // float out = 8000;
+    // float out = -7000;
     // control_output_helper(out);
 }
 
@@ -198,6 +211,16 @@ extern "C" void motorControlTask(void *) {
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
     __HAL_TIM_MOE_ENABLE(&htim1);
+    // HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+    // HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+    // HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3);
+    // HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_4);
+    // __HAL_TIM_MOE_ENABLE(&htim8);
+    
+    // __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint16_t)(10001));
+    // __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, (uint16_t)(10001));
+    // __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint16_t)(10001));
+    // __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, (uint16_t)(10001));
 
     float speed = 20;
     bool  pause = false;

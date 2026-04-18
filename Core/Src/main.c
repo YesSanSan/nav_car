@@ -148,7 +148,7 @@ extern void adcTask(void *argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 volatile uint64_t timestamp_us = 0; // 全局 64-bit 时间戳（微秒）
-
+volatile uint32_t runtime_base32 = 0; // FreeRTOS 统计用 32-bit 时间戳（微秒）
 /* USER CODE END 0 */
 
 /**
@@ -1430,7 +1430,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
@@ -1555,6 +1555,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
     if (htim->Instance == TIM12) {
         timestamp_us += 65536ULL;
+        runtime_base32 += 65536ULL;
     }
   /* USER CODE END Callback 1 */
 }

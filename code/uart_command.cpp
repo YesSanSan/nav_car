@@ -30,7 +30,7 @@ extern UART_HandleTypeDef huart2;
 #define RECEIVE_BUF_SIZE 256
 #define PACKET_SIZE      (1 + 1 + 4 + 4 + 4 + 2) // header+len+x+y+z+crc16=16字节
 
-#define UART_DBG
+// #define UART_DBG
 
 struct [[gnu::packed]] ReceivePacket_t {
     uint8_t  header;

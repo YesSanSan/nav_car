@@ -39,8 +39,10 @@ SemaphoreHandle_t         adc_sem = nullptr;
  */
 float getCalibratedVoltage(int rawAdc) {
     // 建议对 rawAdc 进行多次采样取平均后再计算
-    const float slope = 0.00055413f;
-    const float offset = -0.02217556f;
+    // const float slope = 0.00055413f;
+    // const float offset = -0.02217556f;
+    const float slope = 0.00055208f;
+    const float offset = 0.01633f;
     
     float voltage = ((float)rawAdc * slope) + offset;
     
