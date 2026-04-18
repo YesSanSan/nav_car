@@ -23,6 +23,22 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {
+            "name": "Release-H750-2M-NoUI",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "NAV_CAR_ENABLE_LVGL_UI": "OFF"
+            }
+        },
+        {
+            "name": "Release-H750-2M-LVGL",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "NAV_CAR_ENABLE_LVGL_UI": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -33,6 +49,14 @@
         {
             "name": "Release",
             "configurePreset": "Release"
+        },
+        {
+            "name": "Release-H750-2M-NoUI",
+            "configurePreset": "Release-H750-2M-NoUI"
+        },
+        {
+            "name": "Release-H750-2M-LVGL",
+            "configurePreset": "Release-H750-2M-LVGL"
         }
     ]
 }

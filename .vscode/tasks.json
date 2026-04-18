@@ -1,44 +1,198 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "bulid",
-			"type": "shell",
-			"isBackground": true,
-			"hide": true,
-			"runOptions": { },
-			"command": "cd ${workspaceFolder}/build && cmake .. -G 'Ninja' && ninja",
-			"problemMatcher": [ ],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"presentation": {
-				"reveal": "never",
-				"focus": true,
-				"panel": "new",
-				"close": true
-			}
-		},
-		{
-			"label": "flash",
-			"type": "shell",
-			"dependsOn": [ "bulid" ],
-			"isBackground": true,
-			"hide": true,
-			"runOptions": { },
-			"command": "pwsh -f ${workspaceFolder}/upload.ps1",
-			"problemMatcher": [ ],
-			"group": {
-				"kind": "test",
-				"isDefault": true
-			},
-			"presentation": {
-				"reveal": "never",
-				"focus": true,
-				"panel": "new",
-				"close": true
-			}
-		}
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "H750: Build App",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "H750: Build App Core",
+                "H750: Copy compile_commands"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "H750: Build App Core",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/../h750_bootloader/build_h750_app.ps1",
+                "-ProjectRoot",
+                "${workspaceFolder}",
+                "-ConfigurePreset",
+                "${input:h750Preset}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "H750: Copy compile_commands",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "$preset = '${input:h750Preset}'; $src = Join-Path '${workspaceFolder}' \"build/h750_boot_overlay/$preset/build/$preset/compile_commands.json\"; $dstDir = Join-Path '${workspaceFolder}' 'build'; $dst = Join-Path $dstDir 'compile_commands.json'; if (-not (Test-Path -LiteralPath $src)) { throw \"compile_commands.json not found: $src\" }; New-Item -ItemType Directory -Force -Path $dstDir | Out-Null; Copy-Item -LiteralPath $src -Destination $dst -Force"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": false
+            }
+        },
+        {
+            "label": "H750: Send App",
+            "type": "process",
+            "dependsOn": [
+                "H750: Build App"
+            ],
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/../h750_bootloader/send_h750_app.ps1",
+                "-ProjectRoot",
+                "${workspaceFolder}",
+                "-ConfigurePreset",
+                "${input:h750Preset}",
+                "-PortName",
+                "${input:h750Port}",
+                "-ForceBootloader"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "H750: Update App",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/../h750_bootloader/update_h750_app.ps1",
+                "-ProjectRoot",
+                "${workspaceFolder}",
+                "-ConfigurePreset",
+                "${input:h750Preset}",
+                "-PortName",
+                "${input:h750Port}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "H750: Build Bootloader",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/../h750_bootloader/build_h750_bootloader.ps1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/../h750_bootloader"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "H750: Upload Bootloader",
+            "type": "process",
+            "dependsOn": [
+                "H750: Build Bootloader"
+            ],
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/../h750_bootloader/upload_h750_bootloader.ps1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/../h750_bootloader"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "h750Preset",
+            "type": "promptString",
+            "description": "CMake configure preset used to build the app overlay",
+            "default": "Release-H750-2M-NoUI"
+        },
+        {
+            "id": "h750Port",
+            "type": "promptString",
+            "description": "Serial port connected to USART1 bootloader",
+            "default": "COM17"
+        }
+    ]
 }

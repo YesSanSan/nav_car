@@ -31,7 +31,6 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -59,10 +58,16 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define key1_Pin GPIO_PIN_0
-#define key1_GPIO_Port GPIOE
-#define key0_Pin GPIO_PIN_1
-#define key0_GPIO_Port GPIOE
+#define tft_nss_Pin GPIO_PIN_4
+#define tft_nss_GPIO_Port GPIOE
+#define key0_Pin GPIO_PIN_0
+#define key0_GPIO_Port GPIOB
+#define key1_Pin GPIO_PIN_1
+#define key1_GPIO_Port GPIOB
+#define tft_rs_Pin GPIO_PIN_0
+#define tft_rs_GPIO_Port GPIOD
+#define tft_rst_Pin GPIO_PIN_2
+#define tft_rst_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

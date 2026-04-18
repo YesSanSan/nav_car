@@ -58,6 +58,42 @@ volatile uint16_t uart_rx_index = 0;
 // ---- 命令队列结构 ----
 char             cmd_queue[CMD_QUEUE_SIZE][RX_BUF_SIZE];
 volatile uint8_t cmd_head = 0;
+
+#ifdef UART_DBG
+static bool parsePidCommand(const char *cmd, unsigned int *wheel, float *kp, float *ki, float *kd) {
+    const char *cursor = cmd + 4;
+    char       *end = nullptr;
+
+    if (strncmp(cmd, "PID,", 4) != 0) {
+        return false;
+    }
+
+    *wheel = static_cast<unsigned int>(strtoul(cursor, &end, 10));
+    if (end == cursor || *end != ',') {
+        return false;
+    }
+
+    cursor = end + 1;
+    *kp = strtof(cursor, &end);
+    if (end == cursor || *end != ',') {
+        return false;
+    }
+
+    cursor = end + 1;
+    *ki = strtof(cursor, &end);
+    if (end == cursor || *end != ',') {
+        return false;
+    }
+
+    cursor = end + 1;
+    *kd = strtof(cursor, &end);
+    if (end == cursor || (*end != '\0' && *end != '\r' && *end != '\n')) {
+        return false;
+    }
+
+    return true;
+}
+#endif
 volatile uint8_t cmd_tail = 0;
 
 std::atomic<float> speed_ = 0;
@@ -313,7 +349,7 @@ extern "C" void uartCommandTask(void *) {
             if (strncmp(cmd_buf, "PID,", 4) == 0) {
                 unsigned int wheel;
                 float        kp, ki, kd;
-                if (sscanf(cmd_buf, "PID,%u,%f,%f,%f", &wheel, &kp, &ki, &kd) == 4) {
+                if (parsePidCommand(cmd_buf, &wheel, &kp, &ki, &kd)) {
                     if (wheel < motors.max_size()) {
                         (*motors[wheel]).pid.Kp = kp;
                         (*motors[wheel]).pid.Ki = ki;

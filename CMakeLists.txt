@@ -24,8 +24,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_CXX_FLAGS_DEBUG "-DUART_DBG")
 endif()
 
-# # Enable LTO for all targets in the project
-# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 # # Optional: Restrict LTO to Release and RelWithDebInfo build types
 # # if you want faster debug builds
@@ -58,9 +57,14 @@ file(GLOB_RECURSE C_LIBS "./lib/*.c")
 file(GLOB_RECURSE CXX_LIBS "./lib/*.cpp")
 file(GLOB C_SOURCES "./code/*.c")
 file(GLOB CXX_SOURCES "./code/*.cpp")
+file(GLOB_RECURSE STORAGE_C_SOURCES "./code/storage/*.c")
+file(GLOB_RECURSE STORAGE_CXX_SOURCES "./code/storage/*.cpp")
 
 file(GLOB_RECURSE CAR_4W_SOURCES "./code/car_4w/*.cpp")
 file(GLOB_RECURSE CAR_2W_SOURCES "./code/car_2w/*.cpp")
+
+list(FILTER C_LIBS EXCLUDE REGEX ".*/lib/third_party/(littlefs|lvgl)/.*\\.c$")
+list(FILTER CXX_LIBS EXCLUDE REGEX ".*/lib/third_party/(littlefs|lvgl)/.*\\.cpp$")
 
 # message(WARNING "source cpp: " ${CXX_SOURCES})
 
@@ -70,6 +74,8 @@ add_executable(${CMAKE_PROJECT_NAME}
     ${CXX_LIBS}
     ${C_SOURCES}
     ${CXX_SOURCES}
+    ${STORAGE_C_SOURCES}
+    ${STORAGE_CXX_SOURCES}
     # ${CAR_4W_SOURCES}
     ${CAR_2W_SOURCES}
 )
@@ -95,11 +101,14 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     "./code"
     "./lib"
+    "./lib/third_party/flashdb/inc"
+    "./lib/third_party/fal/inc"
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+    LFS_THREADSAFE
 )
 
 # Add linked libraries

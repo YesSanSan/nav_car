@@ -21,6 +21,43 @@ static void spi_unlock(const struct __sfud_spi *spi) {
     if (qspi_sem) xSemaphoreGive(qspi_sem);
 }
 
+static uint32_t qspi_instruction_mode_from_lines(uint8_t lines) {
+    switch (lines) {
+        case 1:
+            return QSPI_INSTRUCTION_1_LINE;
+        case 2:
+            return QSPI_INSTRUCTION_2_LINES;
+        default:
+            return 0;
+    }
+}
+
+static uint32_t qspi_address_mode_from_lines(uint8_t lines) {
+    switch (lines) {
+        case 0:
+            return QSPI_ADDRESS_NONE;
+        case 1:
+            return QSPI_ADDRESS_1_LINE;
+        case 2:
+            return QSPI_ADDRESS_2_LINES;
+        default:
+            return 0;
+    }
+}
+
+static uint32_t qspi_data_mode_from_lines(uint8_t lines) {
+    switch (lines) {
+        case 0:
+            return QSPI_DATA_NONE;
+        case 1:
+            return QSPI_DATA_1_LINE;
+        case 2:
+            return QSPI_DATA_2_LINES;
+        default:
+            return 0;
+    }
+}
+
 /**
  * QSPI 硬件命令转换函数
  */
@@ -102,9 +139,6 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
         // 如果有数据要发
         if (sCommand.DataMode != QSPI_DATA_NONE) {
             uint8_t *ptr = (write_size > 5) ? (uint8_t *)&write_buf[5] : (uint8_t *)&write_buf[1];
-            // H7 必须处理 Cache：如果是从 Flash 读入数据到 RAM，要失效缓存；
-            // 如果是从 RAM 写出数据到 Flash，要清除（推送）缓存。
-            SCB_CleanDCache_by_Addr((uint32_t *)(write_buf + 1), write_size - 1);
             status = HAL_QSPI_Transmit(&hqspi, ptr, 500);
             if (status != HAL_OK) return SFUD_ERR_WRITE;
         }
@@ -119,9 +153,6 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
 
         if (HAL_QSPI_Command(&hqspi, &sCommand, 500) != HAL_OK) return SFUD_ERR_READ;
         if (HAL_QSPI_Receive(&hqspi, read_buf, 500) != HAL_OK) return SFUD_ERR_READ;
-
-        // 读取后，必须失效该段 Cache，迫使 CPU 从 RAM 重新获取数据
-        SCB_InvalidateDCache_by_Addr((uint32_t *)read_buf, read_size);
     }
 
     return SFUD_SUCCESS;
@@ -136,14 +167,15 @@ static sfud_err qspi_read(const struct __sfud_spi *spi, uint32_t addr, sfud_qspi
 
     QSPI_CommandTypeDef sCommand = {0};
 
-    // 映射 SFUD 的模式到 HAL 库
-    // 根据你提到的 "dual lines"，如果 SFUD 自动识别是 1-1-2 模式：
-    uint32_t inst_mode = (qspi_read_cmd_format->instruction_lines == 1) ? QSPI_INSTRUCTION_1_LINE : QSPI_INSTRUCTION_2_LINES;
-    uint32_t addr_mode = (qspi_read_cmd_format->address_lines == 1) ? QSPI_ADDRESS_1_LINE : QSPI_ADDRESS_2_LINES;
-    uint32_t data_mode = (qspi_read_cmd_format->data_lines == 1) ? QSPI_DATA_1_LINE : QSPI_DATA_2_LINES;
+    uint32_t inst_mode = qspi_instruction_mode_from_lines(qspi_read_cmd_format->instruction_lines);
+    uint32_t addr_mode = qspi_address_mode_from_lines(qspi_read_cmd_format->address_lines);
+    uint32_t data_mode = qspi_data_mode_from_lines(qspi_read_cmd_format->data_lines);
 
-    // W25Q256 在 32MB 模式下可能需要 32bits 地址
     uint32_t addr_size = (qspi_read_cmd_format->address_size == 32) ? QSPI_ADDRESS_32_BITS : QSPI_ADDRESS_24_BITS;
+
+    if (inst_mode == 0U || addr_mode == 0U || data_mode == 0U) {
+        return SFUD_ERR_READ;
+    }
 
     qspi_cmd_config(&sCommand, qspi_read_cmd_format->instruction, addr, qspi_read_cmd_format->dummy_cycles,
                     inst_mode, addr_mode, addr_size, data_mode);
@@ -152,10 +184,7 @@ static sfud_err qspi_read(const struct __sfud_spi *spi, uint32_t addr, sfud_qspi
 
     if (HAL_QSPI_Command(&hqspi, &sCommand, 1000) != HAL_OK) return SFUD_ERR_READ;
 
-    // 开始读取
     if (HAL_QSPI_Receive(&hqspi, read_buf, 1000) != HAL_OK) return SFUD_ERR_READ;
-    // 重要：失效该段内存缓存，否则读出来可能是全0或错位数据
-    SCB_InvalidateDCache_by_Addr((uint32_t *)read_buf, read_size);
 
     return SFUD_SUCCESS;
 }

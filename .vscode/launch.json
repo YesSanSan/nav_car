@@ -1,21 +1,49 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Cortex Debug",
-            "cwd": "${workspaceFolder}",
-            "executable": "${workspaceFolder}/build/nav_car.elf",
-            "request": "launch",
+            "name": "H750: Debug App",
             "type": "cortex-debug",
-            "runToEntryPoint": "main",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "H750: Build App",
             "servertype": "openocd",
-            "configFiles": [ "D:/scoop/apps/openocd-esp/current/openocd-esp32/share/openocd/scripts/interface/cmsis-dap.cfg", "D:/scoop/apps/openocd-esp/current/openocd-esp32/share/openocd/scripts/target/stm32h7x.cfg" ],
-            "device": "stm32h7",
-            "armToolchainPath": "D:/scoop/apps/gcc-arm-none-eabi/current/",
-            "gdbPath": "D:/scoop/apps/gcc-arm-none-eabi/current/bin/arm-none-eabi-gdb.exe",
+            "serverpath": "openocd",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32h7x.cfg"
+            ],
+            "executable": "${workspaceFolder}/build/h750_boot_overlay/Release-H750-2M-NoUI/build/Release-H750-2M-NoUI/nav_car.elf",
+            "gdbPath": "arm-none-eabi-gdb",
+            "device": "STM32H750XB",
+            "runToEntryPoint": "main",
+            "postRestartCommands": [
+                "monitor reset halt"
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            }
+        },
+        {
+            "name": "H750: Debug Bootloader",
+            "type": "cortex-debug",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/../h750_bootloader",
+            "preLaunchTask": "H750: Build Bootloader",
+            "servertype": "openocd",
+            "serverpath": "openocd",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32h7x.cfg"
+            ],
+            "executable": "${workspaceFolder}/../h750_bootloader/build/Release/h750_bootloader.elf",
+            "gdbPath": "arm-none-eabi-gdb",
+            "device": "STM32H750XB",
+            "runToEntryPoint": "main",
+            "postRestartCommands": [
+                "monitor reset halt"
+            ],
             "liveWatch": {
                 "enabled": true,
                 "samplesPerSecond": 4

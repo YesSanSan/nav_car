@@ -1,4 +1,3 @@
-#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -13,7 +12,6 @@
 #include <task.h>
 
 #include "ring_bufffer.hpp"
-
 
 extern ADC_HandleTypeDef hadc1;
 extern TaskHandle_t      adcHandle;
@@ -102,7 +100,8 @@ extern "C" void adcTask(void *pvParameters) {
                 if (app_buffer.read(sample)) {
                     // TODO: 计算逻辑 (如 1kHz 采样后的滤波)
                     // auto cur_time = __HAL_TIM_GET_COUNTER(&htim12);
-                    volt = getCalibratedVoltage(sample);
+                    float current_voltage = getCalibratedVoltage(sample);
+                    volt = current_voltage;
                     // printf("adc=%u,volt=%.3f\n", sample, getCalibratedVoltage(sample));
                 }
             }

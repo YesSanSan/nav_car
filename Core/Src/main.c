@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,8 +51,6 @@ FDCAN_HandleTypeDef hfdcan1;
 
 QSPI_HandleTypeDef hqspi;
 
-SPI_HandleTypeDef hspi2;
-SPI_HandleTypeDef hspi3;
 SPI_HandleTypeDef hspi4;
 
 TIM_HandleTypeDef htim1;
@@ -70,25 +68,25 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
+/* Definitions for lcd */
+osThreadId_t lcdHandle;
+const osThreadAttr_t lcd_attributes = {
+  .name = "lcd",
+  .stack_size = 8192 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for motor_control */
 osThreadId_t motor_controlHandle;
 const osThreadAttr_t motor_control_attributes = {
   .name = "motor_control",
-  .stack_size = 2048 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for uart_command */
 osThreadId_t uart_commandHandle;
 const osThreadAttr_t uart_command_attributes = {
   .name = "uart_command",
-  .stack_size = 2048 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for encoder_send */
@@ -104,6 +102,13 @@ const osThreadAttr_t adc_attributes = {
   .name = "adc",
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for key */
+osThreadId_t keyHandle;
+const osThreadAttr_t key_attributes = {
+  .name = "key",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* USER CODE BEGIN PV */
 
@@ -129,18 +134,16 @@ static void MX_FDCAN1_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_QUADSPI_Init(void);
-static void MX_SPI2_Init(void);
-static void MX_SPI3_Init(void);
 static void MX_SPI4_Init(void);
 static void MX_TIM15_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM12_Init(void);
-void StartDefaultTask(void *argument);
+void lcdTask(void *argument);
 void motorControlTask(void *argument);
 extern void uartCommandTask(void *argument);
 extern void encoderSendTask(void *argument);
 extern void adcTask(void *argument);
-
+extern void keyTask(void *argument);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -201,8 +204,6 @@ int main(void)
   MX_TIM8_Init();
   MX_ADC1_Init();
   MX_QUADSPI_Init();
-  MX_SPI2_Init();
-  MX_SPI3_Init();
   MX_SPI4_Init();
   MX_TIM15_Init();
   MX_TIM16_Init();
@@ -231,20 +232,47 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of lcd */
+  lcdHandle = osThreadNew(lcdTask, NULL, &lcd_attributes);
+  if (lcdHandle == NULL) {
+    printf("[boot-app] lcd task create failed\r\n");
+    Error_Handler();
+  }
 
   /* creation of motor_control */
   motor_controlHandle = osThreadNew(motorControlTask, NULL, &motor_control_attributes);
+  if (motor_controlHandle == NULL) {
+    printf("[boot-app] motor_control task create failed\r\n");
+    Error_Handler();
+  }
 
   /* creation of uart_command */
   uart_commandHandle = osThreadNew(uartCommandTask, NULL, &uart_command_attributes);
+  if (uart_commandHandle == NULL) {
+    printf("[boot-app] uart_command task create failed\r\n");
+    Error_Handler();
+  }
 
   /* creation of encoder_send */
   encoder_sendHandle = osThreadNew(encoderSendTask, NULL, &encoder_send_attributes);
+  if (encoder_sendHandle == NULL) {
+    printf("[boot-app] encoder_send task create failed\r\n");
+    Error_Handler();
+  }
 
   /* creation of adc */
   adcHandle = osThreadNew(adcTask, NULL, &adc_attributes);
+  if (adcHandle == NULL) {
+    printf("[boot-app] adc task create failed\r\n");
+    Error_Handler();
+  }
+
+  /* creation of key */
+  keyHandle = osThreadNew(keyTask, NULL, &key_attributes);
+  if (keyHandle == NULL) {
+    printf("[boot-app] key task create failed\r\n");
+    Error_Handler();
+  }
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -550,102 +578,6 @@ static void MX_QUADSPI_Init(void)
 }
 
 /**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 0x0;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-  hspi2.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-  hspi2.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-  hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-  hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-  hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
-  * @brief SPI3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI3_Init(void)
-{
-
-  /* USER CODE BEGIN SPI3_Init 0 */
-
-  /* USER CODE END SPI3_Init 0 */
-
-  /* USER CODE BEGIN SPI3_Init 1 */
-
-  /* USER CODE END SPI3_Init 1 */
-  /* SPI3 parameter configuration*/
-  hspi3.Instance = SPI3;
-  hspi3.Init.Mode = SPI_MODE_MASTER;
-  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi3.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
-  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi3.Init.CRCPolynomial = 0x0;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-  hspi3.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-  hspi3.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-  hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-  hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-  if (HAL_SPI_Init(&hspi3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI3_Init 2 */
-
-  /* USER CODE END SPI3_Init 2 */
-
-}
-
-/**
   * @brief SPI4 Initialization Function
   * @param None
   * @retval None
@@ -663,11 +595,11 @@ static void MX_SPI4_Init(void)
   /* SPI4 parameter configuration*/
   hspi4.Instance = SPI4;
   hspi4.Init.Mode = SPI_MODE_MASTER;
-  hspi4.Init.Direction = SPI_DIRECTION_1LINE;
-  hspi4.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi4.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
+  hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi4.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi4.Init.NSS = SPI_NSS_SOFT;
   hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
@@ -1157,9 +1089,9 @@ static void MX_TIM15_Init(void)
 
   /* USER CODE END TIM15_Init 1 */
   htim15.Instance = TIM15;
-  htim15.Init.Prescaler = 0;
+  htim15.Init.Prescaler = 119;
   htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim15.Init.Period = 65535;
+  htim15.Init.Period = 49;
   htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim15.Init.RepetitionCounter = 0;
   htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -1450,16 +1382,36 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  /*Configure GPIO pins : key1_Pin key0_Pin */
-  GPIO_InitStruct.Pin = key1_Pin|key0_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(tft_nss_GPIO_Port, tft_nss_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, tft_rs_Pin|tft_rst_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : tft_nss_Pin */
+  GPIO_InitStruct.Pin = tft_nss_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(tft_nss_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : key0_Pin key1_Pin */
+  GPIO_InitStruct.Pin = key0_Pin|key1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : tft_rs_Pin tft_rst_Pin */
+  GPIO_InitStruct.Pin = tft_rs_Pin|tft_rst_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -1470,14 +1422,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_lcdTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the lcd thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_lcdTask */
+__weak void lcdTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
