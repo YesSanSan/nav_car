@@ -53,7 +53,7 @@ extern "C" void encoderSendTask(void *) {
 
         uint64_t t = GetTimestampUs();
 
-        msg.v     = -v * 1.018;
+        msg.v     = v * 1.018;
         msg.omega = w * 1.018;
         msg.volt  = volt;
         msg.time  = t;
