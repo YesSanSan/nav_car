@@ -3,11 +3,10 @@
 
 #include "cmsis_os2.h"
 #include "main.h"
+#include "ui_input.hpp"
 
 extern "C" {
 #include "bits_button/bits_button.h"
-#include "storage/config_store.h"
-#include "storage/storage_service.h"
 }
 
 namespace {
@@ -29,10 +28,6 @@ button_obj_t btns[] = {
     BITS_BUTTON_INIT(USER_BUTTON_1, 0, &default_param),
 };
 
-uint32_t key_press_count[USER_BUTTON_MAX] = {0, 0};
-bool storage_ready = false;
-bool storage_write_ok = false;
-
 const char *button_name(uint16_t key_id)
 {
     switch (key_id) {
@@ -42,18 +37,6 @@ const char *button_name(uint16_t key_id)
             return "key1";
         default:
             return "key?";
-    }
-}
-
-const char *button_count_key(uint16_t key_id)
-{
-    switch (key_id) {
-        case USER_BUTTON_0:
-            return "key0_count";
-        case USER_BUTTON_1:
-            return "key1_count";
-        default:
-            return "";
     }
 }
 
@@ -71,42 +54,36 @@ uint8_t read_key_state(struct button_obj_t *btn)
 
 uint8_t should_buffer_result(bits_btn_result_t result)
 {
-    return (uint8_t)((result.event == BTN_EVENT_PRESSED) || (result.event == BTN_EVENT_FINISH));
+    if (result.event == BTN_EVENT_FINISH) {
+        return 1;
+    }
+
+    return (uint8_t)((result.event == BTN_EVENT_LONG_PRESS)
+                     && (result.key_value == BITS_BTN_LONG_PRESS_START_KV));
 }
 
-void load_saved_counts()
+bool publish_ui_event(uint16_t key_id, bits_btn_result_t result)
 {
-    uint32_t value = 0;
+    UiInputEvent event = UiInputEvent::NextItem;
 
-    if (!storage_ready) {
-        return;
+    if (result.event == BTN_EVENT_LONG_PRESS) {
+        event = (key_id == USER_BUTTON_0) ? UiInputEvent::Cancel : UiInputEvent::Confirm;
+        return ui_input_publish(event);
     }
 
-    if (config_get_u32("key0_count", &value)) {
-        key_press_count[USER_BUTTON_0] = value;
+    if (result.event != BTN_EVENT_FINISH) {
+        return false;
     }
 
-    value = 0;
-    if (config_get_u32("key1_count", &value)) {
-        key_press_count[USER_BUTTON_1] = value;
-    }
-}
-
-void persist_count(uint16_t key_id)
-{
-    const char *key = button_count_key(key_id);
-
-    if (!storage_ready || !storage_write_ok || key[0] == '\0') {
-        return;
-    }
-
-    if (!config_set_u32(key, key_press_count[key_id])) {
-        std::printf("[key] %s count save failed\r\n", button_name(key_id));
-        return;
-    }
-
-    if (!config_commit()) {
-        std::printf("[key] %s commit failed\r\n", button_name(key_id));
+    switch (result.key_value) {
+        case BITS_BTN_SINGLE_CLICK_KV:
+            event = (key_id == USER_BUTTON_0) ? UiInputEvent::PrevItem : UiInputEvent::NextItem;
+            return ui_input_publish(event);
+        case BITS_BTN_DOUBLE_CLICK_KV:
+            event = (key_id == USER_BUTTON_0) ? UiInputEvent::PrevPage : UiInputEvent::NextPage;
+            return ui_input_publish(event);
+        default:
+            return false;
     }
 }
 
@@ -124,12 +101,7 @@ extern "C" void keyTask(void *)
         .bits_btn_debug_printf = NULL,
     };
 
-    storage_ready = storage_init();
-    storage_write_ok = storage_ready;
-    std::printf("[key] storage %s\r\n", storage_ready ? "ready" : "init failed");
-    if (storage_ready) {
-        load_saved_counts();
-    }
+    ui_input_init();
 
     if (bits_button_init(&config) != BITS_BTN_OK) {
         std::printf("[key] bits_button init failed\r\n");
@@ -139,27 +111,31 @@ extern "C" void keyTask(void *)
     }
 
     bits_btn_register_result_filter_callback(should_buffer_result);
-    std::printf("[key] task ready, key0=%lu key1=%lu\r\n",
-                (unsigned long)key_press_count[USER_BUTTON_0],
-                (unsigned long)key_press_count[USER_BUTTON_1]);
+    std::printf("[key] task ready: K0(prev/item,prev/page,cancel) K1(next/item,next/page,confirm)\r\n");
 
     for (;;) {
         bits_button_ticks();
 
         bits_btn_result_t result = {};
         while (bits_button_get_key_result(&result)) {
-            if (result.event == BTN_EVENT_PRESSED) {
-                std::printf("[key] %s down\r\n", button_name(result.key_id));
+            if (result.key_id >= USER_BUTTON_MAX) {
                 continue;
             }
 
-            if (result.event == BTN_EVENT_FINISH && result.key_value == BITS_BTN_SINGLE_CLICK_KV
-                && result.key_id < USER_BUTTON_MAX) {
-                key_press_count[result.key_id] += 1;
-                persist_count(result.key_id);
-                std::printf("[key] %s click, count=%lu\r\n",
-                            button_name(result.key_id),
-                            (unsigned long)key_press_count[result.key_id]);
+            if (publish_ui_event(result.key_id, result)) {
+                if (result.event == BTN_EVENT_LONG_PRESS) {
+                    std::printf("[key] %s long-press -> %s\r\n",
+                                button_name(result.key_id),
+                                (result.key_id == USER_BUTTON_0) ? "cancel" : "confirm");
+                } else if (result.key_value == BITS_BTN_SINGLE_CLICK_KV) {
+                    std::printf("[key] %s short -> %s\r\n",
+                                button_name(result.key_id),
+                                (result.key_id == USER_BUTTON_0) ? "prev-item" : "next-item");
+                } else if (result.key_value == BITS_BTN_DOUBLE_CLICK_KV) {
+                    std::printf("[key] %s double -> %s\r\n",
+                                button_name(result.key_id),
+                                (result.key_id == USER_BUTTON_0) ? "prev-page" : "next-page");
+                }
             }
         }
 

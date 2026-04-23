@@ -107,8 +107,8 @@ const osThreadAttr_t adc_attributes = {
 osThreadId_t keyHandle;
 const osThreadAttr_t key_attributes = {
   .name = "key",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityBelowNormal,
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
 
@@ -144,6 +144,7 @@ extern void uartCommandTask(void *argument);
 extern void encoderSendTask(void *argument);
 extern void adcTask(void *argument);
 extern void keyTask(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -234,45 +235,21 @@ int main(void)
   /* Create the thread(s) */
   /* creation of lcd */
   lcdHandle = osThreadNew(lcdTask, NULL, &lcd_attributes);
-  if (lcdHandle == NULL) {
-    printf("[boot-app] lcd task create failed\r\n");
-    Error_Handler();
-  }
 
   /* creation of motor_control */
   motor_controlHandle = osThreadNew(motorControlTask, NULL, &motor_control_attributes);
-  if (motor_controlHandle == NULL) {
-    printf("[boot-app] motor_control task create failed\r\n");
-    Error_Handler();
-  }
 
   /* creation of uart_command */
   uart_commandHandle = osThreadNew(uartCommandTask, NULL, &uart_command_attributes);
-  if (uart_commandHandle == NULL) {
-    printf("[boot-app] uart_command task create failed\r\n");
-    Error_Handler();
-  }
 
   /* creation of encoder_send */
   encoder_sendHandle = osThreadNew(encoderSendTask, NULL, &encoder_send_attributes);
-  if (encoder_sendHandle == NULL) {
-    printf("[boot-app] encoder_send task create failed\r\n");
-    Error_Handler();
-  }
 
   /* creation of adc */
   adcHandle = osThreadNew(adcTask, NULL, &adc_attributes);
-  if (adcHandle == NULL) {
-    printf("[boot-app] adc task create failed\r\n");
-    Error_Handler();
-  }
 
   /* creation of key */
   keyHandle = osThreadNew(keyTask, NULL, &key_attributes);
-  if (keyHandle == NULL) {
-    printf("[boot-app] key task create failed\r\n");
-    Error_Handler();
-  }
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -371,7 +348,8 @@ void PeriphCommonClock_Config(void)
   /** Initializes the peripherals clock
   */
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_QSPI|RCC_PERIPHCLK_ADC
-                              |RCC_PERIPHCLK_FDCAN;
+                              |RCC_PERIPHCLK_FDCAN|RCC_PERIPHCLK_USART2
+                              |RCC_PERIPHCLK_USART3;
   PeriphClkInitStruct.PLL2.PLL2M = 2;
   PeriphClkInitStruct.PLL2.PLL2N = 40;
   PeriphClkInitStruct.PLL2.PLL2P = 20;
@@ -380,8 +358,17 @@ void PeriphCommonClock_Config(void)
   PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_3;
   PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
   PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
+  PeriphClkInitStruct.PLL3.PLL3M = 5;
+  PeriphClkInitStruct.PLL3.PLL3N = 70;
+  PeriphClkInitStruct.PLL3.PLL3P = 2;
+  PeriphClkInitStruct.PLL3.PLL3Q = 5;
+  PeriphClkInitStruct.PLL3.PLL3R = 5;
+  PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
+  PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
+  PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
   PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;
   PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL2;
+  PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_PLL3;
   PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
@@ -600,7 +587,7 @@ static void MX_SPI4_Init(void)
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi4.Init.NSS = SPI_NSS_SOFT;
-  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

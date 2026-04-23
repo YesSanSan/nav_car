@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -19,6 +22,37 @@ extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim12;
 
 volatile std::atomic<float> volt = 0;
+
+namespace {
+
+constexpr size_t kVoltageHistorySize = 160;
+
+std::array<float, kVoltageHistorySize> voltage_history{};
+std::atomic<size_t>                    voltage_history_head{0};
+
+float   history_accumulator = 0.0f;
+uint8_t history_accumulator_count = 0;
+
+void push_voltage_sample(float voltage)
+{
+    history_accumulator += voltage;
+    history_accumulator_count++;
+
+    if (history_accumulator_count < 4) {
+        return;
+    }
+
+    const float averaged_voltage = history_accumulator / static_cast<float>(history_accumulator_count);
+    const size_t head = voltage_history_head.load(std::memory_order_relaxed);
+
+    voltage_history[head % kVoltageHistorySize] = averaged_voltage;
+    voltage_history_head.store(head + 1, std::memory_order_release);
+
+    history_accumulator = 0.0f;
+    history_accumulator_count = 0;
+}
+
+} // namespace
 
 // 硬件配置常量
 constexpr uint32_t ADC_BUF_SIZE = 64; // DMA 双缓冲大小 (Half + Full)
@@ -45,6 +79,29 @@ float getCalibratedVoltage(int rawAdc) {
     float voltage = ((float)rawAdc * slope) + offset;
     
     return voltage;
+}
+
+float adc_get_latest_voltage()
+{
+    return volt.load(std::memory_order_relaxed);
+}
+
+size_t adc_copy_voltage_history(float *buffer, size_t capacity)
+{
+    if (buffer == nullptr || capacity == 0) {
+        return 0;
+    }
+
+    const size_t total_pushed = voltage_history_head.load(std::memory_order_acquire);
+    const size_t available = std::min(total_pushed, kVoltageHistorySize);
+    const size_t count = std::min(available, capacity);
+    const size_t start = total_pushed - count;
+
+    for (size_t i = 0; i < count; ++i) {
+        buffer[i] = voltage_history[(start + i) % kVoltageHistorySize];
+    }
+
+    return count;
 }
 
 extern "C" void adcTask(void *pvParameters) {
@@ -102,6 +159,7 @@ extern "C" void adcTask(void *pvParameters) {
                     // auto cur_time = __HAL_TIM_GET_COUNTER(&htim12);
                     float current_voltage = getCalibratedVoltage(sample);
                     volt = current_voltage;
+                    push_voltage_sample(current_voltage);
                     // printf("adc=%u,volt=%.3f\n", sample, getCalibratedVoltage(sample));
                 }
             }
