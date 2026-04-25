@@ -172,7 +172,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART1) {
         // 获取当前错误码
-        uint32_t err = HAL_UART_GetError(huart);
+        // uint32_t err = HAL_UART_GetError(huart);
 
         // 打印错误码（调试用）
         // printf("UART1 Error: 0x%08X\r\n", err);
@@ -258,7 +258,7 @@ void ProcessReceiveData() {
 
 static void sfud_demo(uint32_t addr, size_t size, uint8_t *data);
 
-static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
+[[maybe_unused]] static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
 
 /**
  * SFUD demo for the first flash device test.
@@ -267,7 +267,7 @@ static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
  * @param size test flash size
  * @param size test flash data buffer
  */
-static void sfud_demo(uint32_t addr, size_t size, uint8_t *data) {
+[[maybe_unused]] static void sfud_demo(uint32_t addr, size_t size, uint8_t *data) {
     sfud_err          result = SFUD_SUCCESS;
     const sfud_flash *flash  = sfud_get_device_table() + 0;
     size_t            i;
@@ -278,7 +278,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data) {
     /* erase test */
     result = sfud_erase(flash, addr, size);
     if (result == SFUD_SUCCESS) {
-        printf("Erase the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, addr,
+        printf("Erase the %s flash data finish. Start from 0x%08lX, size is %u.\r\n", flash->name, addr,
                size);
     } else {
         printf("Erase the %s flash data failed.\r\n", flash->name);
@@ -287,7 +287,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data) {
     /* write test */
     result = sfud_write(flash, addr, size, data);
     if (result == SFUD_SUCCESS) {
-        printf("Write the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, addr,
+        printf("Write the %s flash data finish. Start from 0x%08lX, size is %u.\r\n", flash->name, addr,
                size);
     } else {
         printf("Write the %s flash data failed.\r\n", flash->name);
@@ -296,12 +296,12 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data) {
     /* read test */
     result = sfud_read(flash, addr, size, data);
     if (result == SFUD_SUCCESS) {
-        printf("Read the %s flash data success. Start from 0x%08X, size is %u. The data is:\r\n", flash->name, addr,
+        printf("Read the %s flash data success. Start from 0x%08lX, size is %u. The data is:\r\n", flash->name, addr,
                size);
         printf("Offset (h) 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n");
         for (i = 0; i < size; i++) {
             if (i % 16 == 0) {
-                printf("[%08X] ", addr + i);
+                printf("[%08lX] ", addr + i);
             }
             printf("%02X ", data[i]);
             if (((i + 1) % 16 == 0) || i == size - 1) {

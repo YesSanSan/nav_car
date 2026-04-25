@@ -6,6 +6,7 @@
             "dependsOrder": "sequence",
             "dependsOn": [
                 "H750: Build App Core",
+                "H750: Print App Memory",
                 "H750: Copy compile_commands"
             ],
             "problemMatcher": [],
@@ -47,6 +48,32 @@
             }
         },
         {
+            "label": "H750: Print App Memory",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/.vscode/print_h750_memory.ps1",
+                "-WorkspaceFolder",
+                "${workspaceFolder}",
+                "-ConfigurePreset",
+                "${input:h750Preset}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": false
+            }
+        },
+        {
             "label": "H750: Copy compile_commands",
             "type": "process",
             "command": "pwsh",
@@ -85,8 +112,6 @@
                 "${workspaceFolder}",
                 "-ConfigurePreset",
                 "${input:h750Preset}",
-                "-PortName",
-                "${input:h750Port}",
                 "-ForceBootloader"
             ],
             "options": {
@@ -114,9 +139,7 @@
                 "-ProjectRoot",
                 "${workspaceFolder}",
                 "-ConfigurePreset",
-                "${input:h750Preset}",
-                "-PortName",
-                "${input:h750Port}"
+                "${input:h750Preset}"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -184,15 +207,13 @@
     "inputs": [
         {
             "id": "h750Preset",
-            "type": "promptString",
+            "type": "pickString",
             "description": "CMake configure preset used to build the app overlay",
-            "default": "Release-H750-2M-NoUI"
-        },
-        {
-            "id": "h750Port",
-            "type": "promptString",
-            "description": "Serial port connected to USART1 bootloader",
-            "default": "COM17"
+            "default": "Release",
+            "options": [
+                "Release",
+                "Debug"
+            ]
         }
     ]
 }

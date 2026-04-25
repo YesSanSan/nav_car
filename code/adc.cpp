@@ -57,9 +57,9 @@ void push_voltage_sample(float voltage)
 // 硬件配置常量
 constexpr uint32_t ADC_BUF_SIZE = 64; // DMA 双缓冲大小 (Half + Full)
 
-// 内存对齐并放置在非缓存区域(或在读取前手动失效)
+// DMA 专用缓冲区，后续可配合 MPU 单独设为 non-cacheable。
 alignas(32)
-    __attribute__((section(".sram1_buffer")))
+    __attribute__((section(".dma_buffer")))
     uint16_t adc_dma_raw[ADC_BUF_SIZE];
 
 RingBuffer<uint16_t, 512> app_buffer;

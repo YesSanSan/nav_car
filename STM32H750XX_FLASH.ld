@@ -52,19 +52,26 @@
 /* Entry Point */
 ENTRY(Reset_Handler)
 
+PHDRS
+{
+  text PT_LOAD FLAGS(5);  /* R-X */
+  data PT_LOAD FLAGS(6);  /* RW- */
+}
+
 /* Specify the memory areas */
 MEMORY
 {
     ITCMRAM (xrw)      : ORIGIN = 0x00000000, LENGTH = 64K
-    DTCMRAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K /* 存放快速变量和 DMA 缓冲 */
-    FLASH (rx)         : ORIGIN = 0x8000000, LENGTH = 128K  /* H750 Flash 较小 */
+    DTCMRAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K /* 存放快速变量 */
+    FLASH (rx)         : ORIGIN = 0x8000000, LENGTH = 128K
     RAM (xrw)          : ORIGIN = 0x24000000, LENGTH = 512K /* AXI SRAM */
-    RAM_D2 (xrw)       : ORIGIN = 0x30000000, LENGTH = 288K
+    RAM_D2_DMA (xrw)   : ORIGIN = 0x30000000, LENGTH = 1K
+    RAM_D2_DATA (xrw)  : ORIGIN = 0x30000400, LENGTH = 287K
     RAM_D3 (xrw)       : ORIGIN = 0x38000000, LENGTH = 64K
 }
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(DTCMRAM) + LENGTH(DTCMRAM);    /* end of RAM */
+_estack = ORIGIN(DTCMRAM) + LENGTH(DTCMRAM);    /* end of DTCM stack RAM */
 _sstack = _estack - _Min_Stack_Size;
 /* Generate a link error if heap and stack don't fit into RAM */
 _Min_Heap_Size = 0x1000;      /* required amount of heap  */
@@ -79,7 +86,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   /* The program code and other data goes into FLASH */
   .text :
@@ -96,7 +103,7 @@ SECTIONS
 
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
-  } >FLASH
+  } >FLASH :text
 
   /* Constant data goes into FLASH */
   .rodata :
@@ -105,14 +112,14 @@ SECTIONS
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .ARM (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -121,7 +128,7 @@ SECTIONS
     *(.ARM.exidx*)
     __exidx_end = .;
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .preinit_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -130,7 +137,7 @@ SECTIONS
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .init_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -140,7 +147,7 @@ SECTIONS
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   .fini_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -150,7 +157,7 @@ SECTIONS
     KEEP (*(.fini_array*))
     PROVIDE_HIDDEN (__fini_array_end = .);
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH :text
 
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
@@ -166,7 +173,7 @@ SECTIONS
     *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
-  } >DTCMRAM AT> FLASH
+  } >DTCMRAM AT> FLASH :data
 
  /* Initialized TLS data section */
   .tdata : ALIGN(4)
@@ -176,7 +183,7 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
     PROVIDE(__data_end = .);
     PROVIDE(__tdata_end = .);
-  } >DTCMRAM AT> FLASH
+  } >DTCMRAM AT> FLASH :data
 
   PROVIDE( __tdata_start = ADDR(.tdata) );
   PROVIDE( __tdata_size = __tdata_end - __tdata_start );
@@ -200,7 +207,7 @@ SECTIONS
     *(.tbss .tbss.*)
     . = ALIGN(4);
     PROVIDE( __tbss_end = . );
-  } >DTCMRAM
+  } >DTCMRAM :data
 
   PROVIDE( __tbss_start = ADDR(.tbss) );
   PROVIDE( __tbss_size = __tbss_end - __tbss_start );
@@ -224,22 +231,31 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
       PROVIDE( __bss_end = .);
-  } >DTCMRAM
+  } >DTCMRAM :data
   PROVIDE( __non_tls_bss_start = ADDR(.bss) );
 
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );
 
-  /* User_heap_stack section, used to check that there is enough RAM left */
-  ._user_heap_stack (NOLOAD) :
+  /* Reserve the C library heap in AXI SRAM. */
+  .heap_axi (NOLOAD) :
   {
     . = ALIGN(8);
+    _heap_start = .;
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
     . = . + _Min_Heap_Size;
+    _heap_end = .;
+    . = ALIGN(8);
+  } >RAM :data
+
+  /* Keep the MSP stack reservation in DTCM. */
+  ._user_stack (NOLOAD) :
+  {
+    . = ALIGN(8);
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
-  } >DTCMRAM
+  } >DTCMRAM :data
 
   /* 自定义段：DTCM RAM */
   .dtcm_ram (NOLOAD) : 
@@ -250,15 +266,31 @@ SECTIONS
     *(.dtcm_ram*)
     . = ALIGN(4);
     _edtcm_ram = .;
-  } > DTCMRAM
+  } > DTCMRAM :data
 
-  /* 如果你想在 AXI SRAM 开辟一个非缓存区，可以配合 MPU 使用 */
-  .sram1_data (NOLOAD) :
+  /* DMA 专用缓冲区，建议后续配合 MPU 设为 non-cacheable */
+  .dma_buffer (NOLOAD) :
+  {
+  . = ALIGN(32);
+  *(.dma_buffer)
+  *(.dma_buffer*)
+  . = ALIGN(32);
+  } > RAM_D2_DMA :data
+
+  /* 其他放在 D2 SRAM 的大块缓冲区 */
+  .sram_d2_data (NOLOAD) :
   {
   . = ALIGN(32);
   *(.sram1_buffer)
   . = ALIGN(32);
-  } > RAM_D2
+  } > RAM_D2_DATA :data
+
+  .freertos_heap (NOLOAD) :
+  {
+  . = ALIGN(8);
+  *(.freertos_heap)
+  . = ALIGN(8);
+  } > RAM :data
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
