@@ -238,7 +238,9 @@ int main(void)
   MX_TIM12_Init();
   MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
-    HAL_TIM_Base_Start(&htim12);
+    __HAL_TIM_SET_COUNTER(&htim12, 0);
+    __HAL_TIM_CLEAR_FLAG(&htim12, TIM_FLAG_UPDATE);
+    HAL_TIM_Base_Start_IT(&htim12);
   /* USER CODE END 2 */
 
   /* Init scheduler */

@@ -12,9 +12,7 @@ extern TIM_HandleTypeDef htim12;
  * @note   该函数由 FreeRTOS 内部在启动调度器时自动调用
  */
 extern "C" void configureTimerForRunTimeStats(void) {
-    // 启动 TIM1
-    // HAL_TIM_Base_Start(&htim1);
-    // HAL_TIM_Base_Start_IT(&htim1); // 开启中断模式启动
+    // TIM12 is started once from main() because timestamp_us uses the same time base.
 }
 
 /**

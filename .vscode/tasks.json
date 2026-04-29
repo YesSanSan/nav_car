@@ -209,7 +209,7 @@
             "id": "h750Preset",
             "type": "pickString",
             "description": "CMake configure preset used to build the app overlay",
-            "default": "Release",
+            "default": "Debug",
             "options": [
                 "Release",
                 "Debug"

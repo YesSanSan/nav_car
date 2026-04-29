@@ -13,7 +13,10 @@
                 "interface/cmsis-dap.cfg",
                 "target/stm32h7x.cfg"
             ],
-            "executable": "${workspaceFolder}/build/h750_boot_overlay/Release-H750-2M-NoUI/build/Release-H750-2M-NoUI/nav_car.elf",
+            "executable": "${workspaceFolder}/build/h750_boot_overlay/Debug/build/Debug/nav_car.elf",
+            "preLaunchCommands": [
+                "set substitute-path Y:/stm32/h7/nav_car/build/h750_boot_overlay/Debug Y:/stm32/h7/nav_car"
+            ],
             "gdbPath": "arm-none-eabi-gdb",
             "device": "STM32H750XB",
             "runToEntryPoint": "main",
