@@ -63,6 +63,8 @@ TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim12;
 TIM_HandleTypeDef htim15;
 TIM_HandleTypeDef htim16;
+TIM_HandleTypeDef htim17;
+DMA_HandleTypeDef hdma_tim17_up;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
@@ -110,6 +112,20 @@ const osThreadAttr_t key_attributes = {
   .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for ws2812 */
+osThreadId_t ws2812Handle;
+const osThreadAttr_t ws2812_attributes = {
+  .name = "ws2812",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityLow1,
+};
+/* Definitions for beeper */
+osThreadId_t beeperHandle;
+const osThreadAttr_t beeper_attributes = {
+  .name = "beeper",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityLow2,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -138,12 +154,15 @@ static void MX_SPI4_Init(void);
 static void MX_TIM15_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM12_Init(void);
+static void MX_TIM17_Init(void);
 void lcdTask(void *argument);
 void motorControlTask(void *argument);
 extern void uartCommandTask(void *argument);
 extern void encoderSendTask(void *argument);
 extern void adcTask(void *argument);
 extern void keyTask(void *argument);
+extern void ws2812Task(void *argument);
+extern void beeperTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -217,6 +236,7 @@ int main(void)
   MX_TIM15_Init();
   MX_TIM16_Init();
   MX_TIM12_Init();
+  MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
     HAL_TIM_Base_Start(&htim12);
   /* USER CODE END 2 */
@@ -258,6 +278,12 @@ int main(void)
 
   /* creation of key */
   keyHandle = osThreadNew(keyTask, NULL, &key_attributes);
+
+  /* creation of ws2812 */
+  ws2812Handle = osThreadNew(ws2812Task, NULL, &ws2812_attributes);
+
+  /* creation of beeper */
+  beeperHandle = osThreadNew(beeperTask, NULL, &beeper_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1158,7 +1184,7 @@ static void MX_TIM16_Init(void)
 
   /* USER CODE END TIM16_Init 1 */
   htim16.Instance = TIM16;
-  htim16.Init.Prescaler = 0;
+  htim16.Init.Prescaler = 239;
   htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim16.Init.Period = 65535;
   htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -1199,6 +1225,69 @@ static void MX_TIM16_Init(void)
 
   /* USER CODE END TIM16_Init 2 */
   HAL_TIM_MspPostInit(&htim16);
+
+}
+
+/**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 0;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 299;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim17, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim17, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+  HAL_TIM_MspPostInit(&htim17);
 
 }
 
@@ -1354,6 +1443,7 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA2_Stream0_IRQn interrupt configuration */

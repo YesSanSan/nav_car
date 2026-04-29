@@ -1,2 +1,9 @@
 .history
 build
+
+# Claude Code: personal/local state
+.claude/settings.local.json
+.claude/**/*.local.json
+.claude/**/cache/
+.claude/**/logs/
+.claude/**/history/

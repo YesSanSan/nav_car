@@ -12,5 +12,10 @@
     PointerAlignment: Right,
     ColumnLimit: 0,
     AccessModifierOffset: -4,
-    MaxEmptyLinesToKeep: 2
+    MaxEmptyLinesToKeep: 2,
+
+    Cpp11BracedListStyle: true,
+    BinPackArguments: true,
+    BinPackParameters: true,
+    BinPackLongBracedList: true
 }

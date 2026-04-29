@@ -62,6 +62,7 @@ extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
+extern DMA_HandleTypeDef hdma_tim17_up;
 
 /* USER CODE END EV */
 
@@ -235,5 +236,10 @@ void DMA2_Stream0_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+
+void DMA1_Stream0_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_tim17_up);
+}
 
 /* USER CODE END 1 */
