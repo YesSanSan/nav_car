@@ -65,8 +65,8 @@ MEMORY
     DTCMRAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K /* 存放快速变量 */
     FLASH (rx)         : ORIGIN = 0x8000000, LENGTH = 128K
     RAM (xrw)          : ORIGIN = 0x24000000, LENGTH = 512K /* AXI SRAM */
-    RAM_D2_DMA (xrw)   : ORIGIN = 0x30000000, LENGTH = 1K
-    RAM_D2_DATA (xrw)  : ORIGIN = 0x30000400, LENGTH = 287K
+    RAM_D2_DMA (xrw)   : ORIGIN = 0x30000000, LENGTH = 128K
+    RAM_D2_DATA (xrw)  : ORIGIN = 0x30020000, LENGTH = 160K
     RAM_D3 (xrw)       : ORIGIN = 0x38000000, LENGTH = 64K
 }
 

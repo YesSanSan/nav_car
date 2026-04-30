@@ -64,6 +64,8 @@ extern TIM_HandleTypeDef htim7;
 /* USER CODE BEGIN EV */
 extern DMA_HandleTypeDef hdma_tim17_up;
 extern TIM_HandleTypeDef htim12;
+extern void lcd_dma1_stream1_irq_handler(void);
+extern void lcd_spi4_irq_handler(void);
 
 /* USER CODE END EV */
 
@@ -255,6 +257,16 @@ void DMA2_Stream0_IRQHandler(void)
 void DMA1_Stream0_IRQHandler(void)
 {
   HAL_DMA_IRQHandler(&hdma_tim17_up);
+}
+
+void DMA1_Stream1_IRQHandler(void)
+{
+  lcd_dma1_stream1_irq_handler();
+}
+
+void SPI4_IRQHandler(void)
+{
+  lcd_spi4_irq_handler();
 }
 
 /* USER CODE END 1 */

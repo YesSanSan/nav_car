@@ -19,7 +19,8 @@ constexpr uint16_t kPanelHeight = 320;
 constexpr uint16_t kPanelXOffset = 34;
 constexpr uint16_t kPanelYOffset = 0;
 constexpr uint32_t kFramePixelCount = static_cast<uint32_t>(kPanelWidth) * static_cast<uint32_t>(kPanelHeight);
-constexpr uint32_t kSpiChunkBytes = 4096;
+constexpr uint32_t kSpiDmaChunkBytes = 4096;
+constexpr uint32_t kSpiDmaTimeoutMs = 100;
 constexpr uint32_t kBacklightPercent = 90;
 constexpr bool     kBacklightActiveHigh = true;
 constexpr uint32_t kVoltagePageRefreshMs = 250;
@@ -39,7 +40,7 @@ struct UiState {
 };
 
 alignas(32)
-    __attribute__((section(".sram1_buffer")))
+    __attribute__((section(".dma_buffer")))
     uint16_t framebuffer[kFramePixelCount];
 
 alignas(32)
@@ -47,6 +48,10 @@ alignas(32)
     float graph_history[kGraphHistoryCapacity];
 
 UiState ui_state;
+DMA_HandleTypeDef spi4_tx_dma;
+osSemaphoreId_t   spi4_tx_dma_done = nullptr;
+volatile bool     spi4_tx_dma_error = false;
+bool              spi4_tx_dma_ready = false;
 
 constexpr uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b)
 {
@@ -494,6 +499,94 @@ void st7789_deselect()
     HAL_GPIO_WritePin(tft_nss_GPIO_Port, tft_nss_Pin, GPIO_PIN_SET);
 }
 
+void clear_spi4_dma_done()
+{
+    if (spi4_tx_dma_done == nullptr) {
+        return;
+    }
+
+    while (osSemaphoreAcquire(spi4_tx_dma_done, 0) == osOK) {
+    }
+}
+
+bool init_spi4_tx_dma()
+{
+    if (spi4_tx_dma_ready) {
+        return true;
+    }
+
+    if (spi4_tx_dma_done == nullptr) {
+        spi4_tx_dma_done = osSemaphoreNew(1, 0, nullptr);
+        if (spi4_tx_dma_done == nullptr) {
+            std::printf("[lcd] SPI4 DMA semaphore create failed\r\n");
+            return false;
+        }
+    }
+
+    __HAL_RCC_DMA1_CLK_ENABLE();
+
+    spi4_tx_dma.Instance = DMA1_Stream1;
+    spi4_tx_dma.Init.Request = DMA_REQUEST_SPI4_TX;
+    spi4_tx_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    spi4_tx_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+    spi4_tx_dma.Init.MemInc = DMA_MINC_ENABLE;
+    spi4_tx_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    spi4_tx_dma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    spi4_tx_dma.Init.Mode = DMA_NORMAL;
+    spi4_tx_dma.Init.Priority = DMA_PRIORITY_HIGH;
+    spi4_tx_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+    if (HAL_DMA_Init(&spi4_tx_dma) != HAL_OK) {
+        std::printf("[lcd] SPI4 TX DMA init failed\r\n");
+        return false;
+    }
+
+    __HAL_LINKDMA(&hspi4, hdmatx, spi4_tx_dma);
+
+    HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+    HAL_NVIC_SetPriority(SPI4_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(SPI4_IRQn);
+
+    spi4_tx_dma_ready = true;
+    std::printf("[lcd] SPI4 TX DMA ready (DMA1_Stream1)\r\n");
+    return true;
+}
+
+bool spi4_transmit_dma_blocking(const uint8_t *data, uint16_t length)
+{
+    if (data == nullptr || length == 0U) {
+        return true;
+    }
+
+    if (!init_spi4_tx_dma()) {
+        return false;
+    }
+
+    clear_spi4_dma_done();
+    spi4_tx_dma_error = false;
+
+    const HAL_StatusTypeDef start_status = HAL_SPI_Transmit_DMA(&hspi4, data, length);
+    if (start_status != HAL_OK) {
+        std::printf("[lcd] SPI4 DMA start failed: status=%d err=0x%08lx\r\n",
+                    static_cast<int>(start_status),
+                    static_cast<unsigned long>(hspi4.ErrorCode));
+        return false;
+    }
+
+    const osStatus_t wait_status = osSemaphoreAcquire(spi4_tx_dma_done, kSpiDmaTimeoutMs);
+    if (wait_status != osOK || spi4_tx_dma_error || hspi4.ErrorCode != HAL_SPI_ERROR_NONE) {
+        HAL_SPI_Abort(&hspi4);
+        std::printf("[lcd] SPI4 DMA transfer failed: wait=%d dma_err=%u spi_err=0x%08lx\r\n",
+                    static_cast<int>(wait_status),
+                    static_cast<unsigned>(spi4_tx_dma_error),
+                    static_cast<unsigned long>(hspi4.ErrorCode));
+        return false;
+    }
+
+    return true;
+}
+
 void st7789_write_command(uint8_t command)
 {
     HAL_GPIO_WritePin(tft_rs_GPIO_Port, tft_rs_Pin, GPIO_PIN_RESET);
@@ -599,20 +692,32 @@ void st7789_init()
 
 void st7789_flush_framebuffer()
 {
+    if (!init_spi4_tx_dma()) {
+        return;
+    }
+
+    auto *bytes = reinterpret_cast<uint8_t *>(framebuffer);
+    const uint32_t total_bytes = kFramePixelCount * sizeof(uint16_t);
+
     st7789_set_address_window(0, 0, kPanelWidth - 1, kPanelHeight - 1);
 
     HAL_GPIO_WritePin(tft_rs_GPIO_Port, tft_rs_Pin, GPIO_PIN_SET);
     st7789_select();
 
-    auto *bytes = reinterpret_cast<uint8_t *>(framebuffer);
-    const uint32_t total_bytes = kFramePixelCount * sizeof(uint16_t);
-
-    for (uint32_t offset = 0; offset < total_bytes; offset += kSpiChunkBytes) {
-        const uint16_t chunk = static_cast<uint16_t>(std::min<uint32_t>(kSpiChunkBytes, total_bytes - offset));
-        HAL_SPI_Transmit(&hspi4, bytes + offset, chunk, HAL_MAX_DELAY);
+    bool ok = true;
+    for (uint32_t offset = 0; offset < total_bytes; offset += kSpiDmaChunkBytes) {
+        const uint16_t chunk = static_cast<uint16_t>(std::min<uint32_t>(kSpiDmaChunkBytes, total_bytes - offset));
+        if (!spi4_transmit_dma_blocking(bytes + offset, chunk)) {
+            ok = false;
+            break;
+        }
     }
 
     st7789_deselect();
+
+    if (!ok) {
+        std::printf("[lcd] ST7789 framebuffer flush aborted\r\n");
+    }
 }
 
 void set_backlight_percent(uint32_t percent)
@@ -635,6 +740,31 @@ void init_backlight()
 }
 
 } // namespace
+
+extern "C" void lcd_dma1_stream1_irq_handler(void)
+{
+    HAL_DMA_IRQHandler(&spi4_tx_dma);
+}
+
+extern "C" void lcd_spi4_irq_handler(void)
+{
+    HAL_SPI_IRQHandler(&hspi4);
+}
+
+extern "C" void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi == &hspi4 && spi4_tx_dma_done != nullptr) {
+        osSemaphoreRelease(spi4_tx_dma_done);
+    }
+}
+
+extern "C" void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi == &hspi4 && spi4_tx_dma_done != nullptr) {
+        spi4_tx_dma_error = true;
+        osSemaphoreRelease(spi4_tx_dma_done);
+    }
+}
 
 extern "C" void lcdTask(void *)
 {
