@@ -8,6 +8,7 @@
 
 #include "cmsis_os2.h"
 
+#include "adc_history.hpp"
 #include "main.h"
 
 
@@ -33,11 +34,34 @@ extern std::atomic<float> cmd_x;
 extern std::atomic<float> cmd_y;
 extern std::atomic<float> cmd_z;
 
-extern volatile std::atomic<float> volt;
-
 constexpr uint32_t control_loop_ms  = 1; // 控制周期
 constexpr float    pid_output_limit = 10000;
 constexpr float    pwm_brake_output = pid_output_limit + 1.0f;
+constexpr float    motor_rated_voltage = 12.0f;
+constexpr float    max_expected_battery_voltage = 25.2f; // 6S 满电
+constexpr float    min_valid_battery_voltage = 6.0f;
+
+float get_pwm_compensation_voltage() {
+    const float battery_voltage = adc_get_latest_voltage();
+    if (std::isfinite(battery_voltage) && battery_voltage >= min_valid_battery_voltage) {
+        return battery_voltage;
+    }
+
+    return max_expected_battery_voltage;
+}
+
+float apply_battery_voltage_compensation(float pwm_output) {
+    if (pwm_output == pwm_brake_output) {
+        return pwm_output;
+    }
+
+    const float battery_voltage = get_pwm_compensation_voltage();
+    const float voltage_scale = motor_rated_voltage / battery_voltage;
+    const float max_pwm = std::min(pid_output_limit, pid_output_limit * voltage_scale);
+    const float compensated_pwm = pwm_output * voltage_scale;
+
+    return std::clamp(compensated_pwm, -max_pwm, max_pwm);
+}
 
 static void Motor_SetOutput_1(float &pwm_output) {
     if (pwm_output == pwm_brake_output) {
@@ -180,7 +204,7 @@ void Motor::update(int32_t delta_time, float target_rpm) {
 
     static std::array<uint8_t, 5> cnt = {0, 1, 2, 3};
     if (id == 1 && cnt[id - 1] % 20 == 0) {
-        // printf("volt=%.3f\n", volt.load());
+        // printf("volt=%.3f\n", adc_get_latest_voltage());
     }
     if (cnt[id - 1]++ % 20 == 0) {
         // printf("id%d,target%d=%d.%d,target_rpm%d=%d.%d,int%d=%d.%d,real_rpm%d=%d.%d,enc%d=%d,pwm%d=%d.%d\n",
@@ -192,7 +216,8 @@ void Motor::update(int32_t delta_time, float target_rpm) {
         //        id, static_cast<int>(pwm_output), std::abs(static_cast<int>(pwm_output * 1000)) % 1000);
     }
 
-    control_output_helper(pwm_output);
+    float compensated_pwm_output = apply_battery_voltage_compensation(pwm_output);
+    control_output_helper(compensated_pwm_output);
     // float out = -7000;
     // control_output_helper(out);
 }

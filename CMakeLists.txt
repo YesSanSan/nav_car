@@ -74,8 +74,8 @@ add_executable(${CMAKE_PROJECT_NAME}
     ${CXX_SOURCES}
     ${STORAGE_C_SOURCES}
     ${STORAGE_CXX_SOURCES}
-    # ${CAR_4W_SOURCES}
-    ${CAR_2W_SOURCES}
+    ${CAR_4W_SOURCES}
+    # ${CAR_2W_SOURCES}
 )
 
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE)
