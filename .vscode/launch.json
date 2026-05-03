@@ -6,7 +6,7 @@
             "type": "cortex-debug",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "H750: Build App",
+            // "preLaunchTask": "H750: Build App",
             "servertype": "openocd",
             "serverpath": "openocd",
             "configFiles": [
@@ -17,6 +17,7 @@
             "preLaunchCommands": [
                 "set substitute-path Y:/stm32/h7/nav_car/build/h750_boot_overlay/Debug Y:/stm32/h7/nav_car"
             ],
+            "armToolchainPath": "D:/scoop/apps/gcc-arm-none-eabi/current/bin",
             "gdbPath": "arm-none-eabi-gdb",
             "device": "STM32H750XB",
             "runToEntryPoint": "main",

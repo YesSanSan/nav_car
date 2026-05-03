@@ -9,6 +9,11 @@
 #include "semphr.h"
 
 #include "config_store.h"
+#include "storage_self_test.h"
+
+#ifndef STORAGE_RUN_BOOT_SELF_TEST
+#define STORAGE_RUN_BOOT_SELF_TEST 0
+#endif
 
 static SemaphoreHandle_t storage_mutex = NULL;
 static bool storage_ready = false;
@@ -45,6 +50,15 @@ bool storage_init(void) {
         return false;
     }
     printf("[storage] fal ready\r\n");
+
+#if STORAGE_RUN_BOOT_SELF_TEST
+    printf("[storage] boot self-test begin\r\n");
+    if (!storage_self_test_run()) {
+        printf("[storage] boot self-test failed\r\n");
+        return false;
+    }
+    printf("[storage] boot self-test passed\r\n");
+#endif
 
     if (!config_init()) {
         printf("[storage] config_init failed\r\n");

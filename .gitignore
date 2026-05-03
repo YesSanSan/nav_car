@@ -7,3 +7,5 @@ build
 .claude/**/cache/
 .claude/**/logs/
 .claude/**/history/
+
+**/.pid_tuning_port.json

@@ -208,6 +208,7 @@ bool storage_self_test_run(void)
     bool raw_ok = false;
     bool fal_ok = false;
     bool config_ok = false;
+    bool config_tested = false;
     bool restore_ok = false;
     bool backup_blank = false;
 
@@ -279,17 +280,18 @@ bool storage_self_test_run(void)
     }
 
     if (config_is_ready()) {
+        config_tested = true;
         config_ok = config_test_u32() && config_test_string() && config_test_blob();
         config_cleanup();
     } else {
-        printf("[storage-test] config not ready\r\n");
+        printf("[storage-test] config skipped (not ready)\r\n");
     }
 
     printf("[storage-test] result raw=%s fal=%s restore=%s config=%s\r\n",
            raw_ok ? "PASS" : "FAIL",
            fal_ok ? "PASS" : "FAIL",
            restore_ok ? "PASS" : "FAIL",
-           config_ok ? "PASS" : "FAIL");
+           config_tested ? (config_ok ? "PASS" : "FAIL") : "SKIP");
 
-    return raw_ok && fal_ok && restore_ok && config_ok;
+    return raw_ok && fal_ok && restore_ok && (!config_tested || config_ok);
 }

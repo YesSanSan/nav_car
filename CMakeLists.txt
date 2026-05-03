@@ -57,9 +57,13 @@ file(GLOB C_SOURCES "./code/*.c")
 file(GLOB CXX_SOURCES "./code/*.cpp")
 file(GLOB_RECURSE STORAGE_C_SOURCES "./code/storage/*.c")
 file(GLOB_RECURSE STORAGE_CXX_SOURCES "./code/storage/*.cpp")
+file(GLOB_RECURSE PID_TUNING_SOURCES "./code/pid_tuning/*.cpp")
 
 file(GLOB_RECURSE CAR_4W_SOURCES "./code/car_4w/*.cpp")
 file(GLOB_RECURSE CAR_2W_SOURCES "./code/car_2w/*.cpp")
+
+set(PID_TUNING_UART_DEFINITION PID_TUNING_USE_UART1)
+set(PID_TUNING_UART_DEFINITION PID_TUNING_USE_UART3)
 
 list(FILTER C_LIBS EXCLUDE REGEX ".*/lib/third_party/(littlefs|lvgl)/.*\\.c$")
 list(FILTER CXX_LIBS EXCLUDE REGEX ".*/lib/third_party/(littlefs|lvgl)/.*\\.cpp$")
@@ -74,6 +78,7 @@ add_executable(${CMAKE_PROJECT_NAME}
     ${CXX_SOURCES}
     ${STORAGE_C_SOURCES}
     ${STORAGE_CXX_SOURCES}
+    ${PID_TUNING_SOURCES}
     ${CAR_4W_SOURCES}
     # ${CAR_2W_SOURCES}
 )
@@ -107,6 +112,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
     LFS_THREADSAFE
+    ${PID_TUNING_UART_DEFINITION}
     $<$<CONFIG:Debug>:UART_DBG>
 )
 

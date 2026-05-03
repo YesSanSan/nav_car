@@ -4,6 +4,7 @@
 #include "FreeRTOS.h"
 #include "main.h"
 #include "semphr.h"
+#include "task.h"
 
 #include "sfud.h"
 
@@ -19,6 +20,14 @@ static void spi_lock(const struct __sfud_spi *spi) {
 
 static void spi_unlock(const struct __sfud_spi *spi) {
     if (qspi_sem) xSemaphoreGive(qspi_sem);
+}
+
+static void retry_delay(void) {
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        vTaskDelay(pdMS_TO_TICKS(1U));
+    } else {
+        HAL_Delay(1U);
+    }
 }
 
 static uint32_t qspi_instruction_mode_from_lines(uint8_t lines) {
@@ -207,6 +216,7 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     flash->spi.lock      = spi_lock;
     flash->spi.unlock    = spi_unlock;
     flash->spi.user_data = &hqspi;
+    flash->retry.delay   = retry_delay;
     flash->retry.times   = 10000;
 
     return result;
